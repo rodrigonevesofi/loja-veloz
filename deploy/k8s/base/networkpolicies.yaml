@@ -1,0 +1,150 @@
+# Zero trust na rede: tudo bloqueado por padrão, cada fluxo liberado explicitamente.
+#   [Gateway API/istio-ingress] -> gateway -> pedidos -> estoque / pagamentos
+#                                         \-> estoque
+#   pedidos, estoque -> PostgreSQL ; pagamentos -> provedor externo (443)
+#   todos -> otel-collector (observability) ; prometheus (monitoring) -> todos:8000
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-and-telemetry
+spec:
+  podSelector: {}
+  policyTypes: [Egress, Ingress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+      ports:
+        - { protocol: TCP, port: 4318 }
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - { protocol: TCP, port: 8000 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gateway
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: gateway
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-ingress
+      ports:
+        - { protocol: TCP, port: 8000 }
+  egress:
+    - to:
+        - podSelector:
+            matchExpressions:
+              - { key: app.kubernetes.io/name, operator: In, values: [pedidos, estoque] }
+      ports:
+        - { protocol: TCP, port: 8000 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pedidos
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: pedidos
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gateway
+      ports:
+        - { protocol: TCP, port: 8000 }
+  egress:
+    - to:
+        - podSelector:
+            matchExpressions:
+              - { key: app.kubernetes.io/name, operator: In, values: [estoque, pagamentos] }
+      ports:
+        - { protocol: TCP, port: 8000 }
+    - to:
+        - podSelector:              # PostgreSQL no cluster (overlay local)
+            matchLabels:
+              app.kubernetes.io/name: postgres
+        - ipBlock:                  # Amazon RDS nas subnets privadas da VPC (staging/prod)
+            cidr: 10.20.0.0/16
+      ports:
+        - { protocol: TCP, port: 5432 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: estoque
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: estoque
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - { key: app.kubernetes.io/name, operator: In, values: [gateway, pedidos] }
+      ports:
+        - { protocol: TCP, port: 8000 }
+  egress:
+    - to:
+        - podSelector:              # PostgreSQL no cluster (overlay local)
+            matchLabels:
+              app.kubernetes.io/name: postgres
+        - ipBlock:                  # Amazon RDS nas subnets privadas da VPC (staging/prod)
+            cidr: 10.20.0.0/16
+      ports:
+        - { protocol: TCP, port: 5432 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pagamentos
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: pagamentos
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: pedidos
+      ports:
+        - { protocol: TCP, port: 8000 }
+  egress:
+    - to:                           # provedor de pagamento na internet, nunca a rede interna
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.169.254/32]
+      ports:
+        - { protocol: TCP, port: 443 }

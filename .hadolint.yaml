@@ -1,0 +1,6 @@
+failure-threshold: warning
+ignored:
+  # usamos --mount=type=cache para o pip: o cache fica FORA da imagem final
+  - DL3042
+trustedRegistries:
+  - docker.io

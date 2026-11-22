@@ -1,0 +1,8 @@
+# Recursos de PLATAFORMA (aplicados uma vez por cluster pela equipe de SRE, não pelo pipeline do app).
+# Os operadores em si são instalados via Helm com os values de ./helm (ver README.md desta pasta).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespaces.yaml
+  - gateway.yaml
+  - cluster-secret-store.yaml

@@ -1,0 +1,114 @@
+# Réplica canary do serviço de Pedidos. A imagem "loja-veloz/pedidos-canary" é mapeada pelo
+# overlay para a MESMA imagem do registry, porém com a tag candidata (definida pelo CD).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pedidos-canary
+  labels:
+    app.kubernetes.io/name: pedidos
+    app.kubernetes.io/component: backend
+    version: canary
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  progressDeadlineSeconds: 180
+  minReadySeconds: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pedidos
+      version: canary
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pedidos
+        app.kubernetes.io/component: backend
+        version: canary
+    spec:
+      serviceAccountName: pedidos
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: pedidos
+        image: loja-veloz/pedidos-canary
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8000
+        envFrom:
+        - configMapRef:
+            name: loja-veloz-config
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: k8s.pod.name=$(POD_NAME),k8s.namespace.name=$(POD_NAMESPACE)
+        - name: OTEL_SERVICE_NAME
+          value: pedidos
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: pedidos-db
+              key: DATABASE_URL
+        resources:
+          requests:
+            cpu: 150m
+            memory: 160Mi
+          limits:
+            cpu: 750m
+            memory: 320Mi
+        startupProbe:
+          httpGet:
+            path: /health/live
+            port: http
+          periodSeconds: 2
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+          periodSeconds: 5
+          timeoutSeconds: 2
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 2
+          failureThreshold: 3
+        lifecycle:
+          preStop:
+            sleep:
+              seconds: 5
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir:
+          medium: Memory
+          sizeLimit: 32Mi

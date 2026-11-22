@@ -1,0 +1,187 @@
+# Ambiente local completo da plataforma Pedidos Veloz.
+#   docker compose up -d --build      -> sobe tudo (aplicação + observabilidade)
+#   docker compose watch              -> rebuild automático ao salvar código
+# Valores sensíveis têm defaults APENAS para desenvolvimento; sobrescreva via .env.
+name: loja-veloz
+
+x-app-env: &app-env
+  APP_ENV: local
+  APP_VERSION: ${TAG:-dev}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  OTEL_TRACES_SAMPLER: parentbased_always_on   # local: 100% dos traces
+  HTTP_TIMEOUT_SECONDS: "3"
+
+# Mesmas restrições aplicadas no Kubernetes (securityContext), já no dev
+x-hardening: &hardening
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  restart: unless-stopped
+  deploy:
+    resources:
+      limits: { cpus: "0.50", memory: 256M }
+
+x-build-args: &build-args
+  APP_VERSION: ${TAG:-dev}
+  VCS_REF: ${VCS_REF:-local}
+
+services:
+  # ------------------------------------------------------------------ dados
+  postgres:
+    image: postgres:17.2-alpine
+    environment:
+      POSTGRES_USER: veloz_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-veloz-admin-dev}
+      POSTGRES_DB: postgres
+      PEDIDOS_DB_PASSWORD: ${PEDIDOS_DB_PASSWORD:-pedidos-dev}
+      ESTOQUE_DB_PASSWORD: ${ESTOQUE_DB_PASSWORD:-estoque-dev}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/compose/postgres/init-db.sh:/docker-entrypoint-initdb.d/01-init-db.sh:ro
+    networks: [data]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U veloz_admin -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ------------------------------------------------------------------ aplicação
+  estoque:
+    <<: *hardening
+    build:
+      context: .
+      dockerfile: services/estoque/Dockerfile
+      args: *build-args
+    image: ${REGISTRY:-ghcr.io/loja-veloz}/loja-veloz-estoque:${TAG:-dev}
+    environment:
+      <<: *app-env
+      DATABASE_URL: postgresql://estoque:${ESTOQUE_DB_PASSWORD:-estoque-dev}@postgres:5432/estoque
+    networks: [backend, data, telemetry]
+    depends_on:
+      postgres: { condition: service_healthy }
+    develop:
+      watch:
+        - { action: rebuild, path: ./services/estoque }
+        - { action: rebuild, path: ./libs/veloz_common }
+
+  pagamentos:
+    <<: *hardening
+    build:
+      context: .
+      dockerfile: services/pagamentos/Dockerfile
+      args: *build-args
+    image: ${REGISTRY:-ghcr.io/loja-veloz}/loja-veloz-pagamentos:${TAG:-dev}
+    environment:
+      <<: *app-env
+      PAYMENT_PROVIDER_LATENCY_MS: ${PAYMENT_PROVIDER_LATENCY_MS:-150}
+      PAYMENT_PROVIDER_FAILURE_RATE: ${PAYMENT_PROVIDER_FAILURE_RATE:-0.02}
+      PAYMENT_APPROVAL_LIMIT: "5000"
+    networks: [backend, telemetry]
+    develop:
+      watch:
+        - { action: rebuild, path: ./services/pagamentos }
+        - { action: rebuild, path: ./libs/veloz_common }
+
+  pedidos:
+    <<: *hardening
+    build:
+      context: .
+      dockerfile: services/pedidos/Dockerfile
+      args: *build-args
+    image: ${REGISTRY:-ghcr.io/loja-veloz}/loja-veloz-pedidos:${TAG:-dev}
+    environment:
+      <<: *app-env
+      DATABASE_URL: postgresql://pedidos:${PEDIDOS_DB_PASSWORD:-pedidos-dev}@postgres:5432/pedidos
+      ESTOQUE_URL: http://estoque:8000
+      PAGAMENTOS_URL: http://pagamentos:8000
+    networks: [backend, data, telemetry]
+    depends_on:
+      postgres: { condition: service_healthy }
+      estoque: { condition: service_healthy }
+      pagamentos: { condition: service_healthy }
+    develop:
+      watch:
+        - { action: rebuild, path: ./services/pedidos }
+        - { action: rebuild, path: ./libs/veloz_common }
+
+  gateway:
+    <<: *hardening
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+      args: *build-args
+    image: ${REGISTRY:-ghcr.io/loja-veloz}/loja-veloz-gateway:${TAG:-dev}
+    environment:
+      <<: *app-env
+      PEDIDOS_URL: http://pedidos:8000
+      ESTOQUE_URL: http://estoque:8000
+      HTTP_TIMEOUT_SECONDS: "10"
+    ports: ["8080:8000"]
+    networks: [frontend, backend, telemetry]
+    depends_on:
+      pedidos: { condition: service_healthy }
+      estoque: { condition: service_healthy }
+    develop:
+      watch:
+        - { action: rebuild, path: ./services/gateway }
+        - { action: rebuild, path: ./libs/veloz_common }
+
+  # ------------------------------------------------------------------ observabilidade
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.116.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./observability/otel-collector/config.yaml:/etc/otelcol/config.yaml:ro
+    networks: [telemetry]
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/jaeger:2.1.0
+    ports: ["16686:16686"]   # UI de traces
+    networks: [telemetry]
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.0.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
+    volumes:
+      - ./observability/prometheus:/etc/prometheus:ro
+      - prometheus-data:/prometheus
+    ports: ["9090:9090"]
+    networks: [telemetry]
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin-dev}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"       # só no ambiente local
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports: ["3000:3000"]
+    networks: [telemetry]
+    depends_on: [prometheus, jaeger]
+    restart: unless-stopped
+
+networks:
+  frontend: {}            # único ponto exposto ao host: gateway (8080)
+  backend: {}             # comunicação entre microsserviços
+  data:
+    internal: true        # banco sem rota para fora; só pedidos/estoque alcançam
+  telemetry: {}           # OTLP, scrape de métricas e UIs de observabilidade
+
+volumes:
+  pgdata: {}
+  prometheus-data: {}
+  grafana-data: {}

@@ -1,0 +1,26 @@
+# Componentes de infraestrutura que precisam de mais permissões ficam em namespaces
+# separados com PSA "baseline" (ex.: node-exporter usa hostNetwork -> "privileged" só onde necessário).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability            # OpenTelemetry Collector, Jaeger/Tempo, Loki
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring               # kube-prometheus-stack (Prometheus, Alertmanager, Grafana)
+  labels:
+    pod-security.kubernetes.io/enforce: privileged   # node-exporter exige hostNetwork/hostPID
+    pod-security.kubernetes.io/warn: baseline
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-ingress            # pods do Gateway (borda norte-sul)
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+    gateway-access: "true"

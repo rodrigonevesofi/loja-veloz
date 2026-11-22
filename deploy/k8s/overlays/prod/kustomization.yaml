@@ -1,0 +1,59 @@
+# Produção: mais réplicas mínimas (pico da campanha), VPA em recomendação e canary para Pedidos.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: loja-veloz
+
+resources:
+  - ../../base
+  - external-secrets.yaml
+
+components:
+  - ../../components/istio
+  - ../../components/monitoring
+  - ../../components/vpa
+  - ../../components/canary-pedidos
+
+configMapGenerator:
+  - name: loja-veloz-config
+    behavior: merge
+    literals:
+      - APP_ENV=production
+      - LOG_LEVEL=INFO
+
+patches:
+  - target: { kind: HTTPRoute, name: loja-veloz-api }
+    patch: |-
+      - op: replace
+        path: /spec/hostnames/0
+        value: api.lojaveloz.example
+  # piso de capacidade para a campanha: o HPA não começa do zero quando o tráfego chega
+  - target: { kind: HorizontalPodAutoscaler, name: "gateway|estoque" }
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 3
+  - target: { kind: HorizontalPodAutoscaler, name: pedidos }
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 4
+      - op: replace
+        path: /spec/maxReplicas
+        value: 30
+  - target: { kind: Deployment, name: "gateway|estoque" }
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+  - target: { kind: Deployment, name: pedidos }
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 4
+
+images:
+  - { name: loja-veloz/gateway, newName: ghcr.io/loja-veloz/loja-veloz-gateway, newTag: 0.1.0 }
+  - { name: loja-veloz/pedidos, newName: ghcr.io/loja-veloz/loja-veloz-pedidos, newTag: 0.1.0 }
+  - { name: loja-veloz/pedidos-canary, newName: ghcr.io/loja-veloz/loja-veloz-pedidos, newTag: 0.1.0 }
+  - { name: loja-veloz/estoque, newName: ghcr.io/loja-veloz/loja-veloz-estoque, newTag: 0.1.0 }
+  - { name: loja-veloz/pagamentos, newName: ghcr.io/loja-veloz/loja-veloz-pagamentos, newTag: 0.1.0 }

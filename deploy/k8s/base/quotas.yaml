@@ -1,0 +1,26 @@
+# Guarda-corpos do namespace: um HPA descontrolado ou um deploy errado não consome o cluster todo.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: loja-veloz-quota
+spec:
+  hard:
+    requests.cpu: "16"
+    requests.memory: 24Gi
+    limits.memory: 48Gi
+    pods: "120"
+---
+# Defaults para qualquer contêiner que esqueça de declarar resources (ex.: jobs ad hoc).
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: loja-veloz-defaults
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 50m
+        memory: 64Mi
+      default:
+        cpu: 250m
+        memory: 128Mi

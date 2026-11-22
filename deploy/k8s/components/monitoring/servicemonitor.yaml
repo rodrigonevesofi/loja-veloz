@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: loja-veloz
+  labels:
+    release: kube-prometheus-stack    # label que o Prometheus do chart usa para descobrir monitores
+spec:
+  selector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [gateway, pedidos, estoque, pagamentos]
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_label_version]
+          targetLabel: version        # permite comparar stable x canary no gate de promoção

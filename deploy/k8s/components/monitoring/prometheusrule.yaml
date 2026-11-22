@@ -1,0 +1,47 @@
+# GERADO a partir de observability/prometheus/alerts.yml (make k8s-rules). Não edite à mão.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: loja-veloz-slo
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+  - name: loja-veloz-slo
+    rules:
+    - alert: ServicoFora
+      expr: up{job="loja-veloz"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: '{{ $labels.app }} não responde ao scrape há 1 minuto'
+    - alert: TaxaDeErroAlta
+      expr: "sum by (service) (rate(http_requests_total{status=~\"5..\"}[5m]))\n  / sum by (service) (rate(http_requests_total[5m]))\
+        \ > 0.05\n"
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: '{{ $labels.service }} com mais de 5% de respostas 5xx'
+    - alert: LatenciaP95Alta
+      expr: "histogram_quantile(0.95,\n  sum by (le, service) (rate(http_request_duration_seconds_bucket[5m]))) > 0.5\n"
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: p95 de {{ $labels.service }} acima de 500 ms
+    - alert: ProvedorDePagamentoInstavel
+      expr: "sum(rate(pagamentos_total{resultado=\"erro_provedor\"}[5m]))\n  / sum(rate(pagamentos_total[5m])) > 0.10\n"
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: Mais de 10% das autorizações falhando no provedor externo
+    - alert: PedidosComFalhaAcimaDoNormal
+      expr: "sum(rate(pedidos_total{status=\"FALHA\"}[10m]))\n  / sum(rate(pedidos_total[10m])) > 0.02\n"
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: Mais de 2% dos pedidos terminando em FALHA (dependência indisponível)

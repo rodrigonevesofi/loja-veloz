@@ -1,0 +1,7 @@
+# VPA em modo de RECOMENDAÇÃO ("Off"). Motivo: HPA e VPA atuando sobre a mesma métrica
+# (CPU) brigam entre si. O HPA escala horizontalmente; o VPA só observa o consumo real e
+# sugere requests/limits, que o time revisa e aplica via Git (`kubectl describe vpa`).
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - vpa.yaml

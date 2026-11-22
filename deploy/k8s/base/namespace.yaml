@@ -1,0 +1,12 @@
+# Pod Security Admission (built-in desde o Kubernetes 1.25, substitui PodSecurityPolicy).
+# "restricted" é o perfil mais rígido: proíbe root, privilege escalation, capabilities,
+# hostPath/hostNetwork e exige seccomp. Pods fora do padrão são REJEITADOS na admissão.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: loja-veloz
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.31
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted

@@ -1,0 +1,93 @@
+# Resiliência na malha: timeouts, retries seguros e circuit breaker (outlier detection).
+# Retries só em falhas de conexão (a requisição não chegou a ser processada),
+# então um POST de pagamento nunca é repetido às cegas.
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: pedidos
+spec:
+  host: pedidos
+  trafficPolicy:
+    connectionPool:
+      http: { http1MaxPendingRequests: 200, maxRequestsPerConnection: 100 }
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 10s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+  subsets:                          # usados pela estratégia canary (components/canary-pedidos)
+    - name: stable
+      labels: { version: stable }
+    - name: canary
+      labels: { version: canary }
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: pedidos
+spec:
+  hosts: [pedidos]
+  http:
+    - name: primary
+      timeout: 8s
+      retries: { attempts: 2, perTryTimeout: 4s, retryOn: "connect-failure,refused-stream" }
+      route:
+        - destination: { host: pedidos, subset: stable }
+          weight: 100
+        - destination: { host: pedidos, subset: canary }
+          weight: 0
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: estoque
+spec:
+  host: estoque
+  trafficPolicy:
+    connectionPool:
+      http: { http1MaxPendingRequests: 200 }
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 10s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: estoque
+spec:
+  hosts: [estoque]
+  http:
+    - timeout: 3s
+      retries: { attempts: 2, perTryTimeout: 1500ms, retryOn: "connect-failure,refused-stream" }
+      route:
+        - destination: { host: estoque }
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: pagamentos
+spec:
+  host: pagamentos
+  trafficPolicy:
+    connectionPool:                 # bulkhead: limita a fila para o provedor externo
+      tcp: { maxConnections: 100 }
+      http: { http1MaxPendingRequests: 50 }
+    outlierDetection:
+      consecutive5xxErrors: 3
+      interval: 10s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: pagamentos
+spec:
+  hosts: [pagamentos]
+  http:
+    - timeout: 5s
+      retries: { attempts: 1, perTryTimeout: 5s, retryOn: "connect-failure,refused-stream" }
+      route:
+        - destination: { host: pagamentos }

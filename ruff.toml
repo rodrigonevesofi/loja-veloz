@@ -1,0 +1,18 @@
+target-version = "py313"
+line-length = 110
+
+[lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "BLE", "SIM", "ASYNC"]
+ignore = [
+    "S104",  # bind em 0.0.0.0 é o esperado dentro do contêiner
+    "S311",  # random só simula o provedor de pagamento, não é uso criptográfico
+    "S608",  # SQL montado só com nomes de colunas constantes; valores sempre parametrizados
+    "B008",  # padrão do FastAPI (Header()/Query() em defaults)
+]
+
+[lint.per-file-ignores]
+"**/tests/**" = ["S101"]
+"docs/build_reports.py" = ["E501"]  # parágrafos de texto do relatório
+
+[lint.isort]
+known-first-party = ["app", "veloz_common"]
