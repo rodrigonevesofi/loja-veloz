@@ -1,5 +1,9 @@
 # Pedidos Veloz — entrega contínua de microsserviços (Compose → Kubernetes)
 
+[![CI/CD](https://github.com/rodrigonevesofi/loja-veloz/actions/workflows/pipeline.yml/badge.svg)](https://github.com/rodrigonevesofi/loja-veloz/actions/workflows/pipeline.yml)
+
+**Autor:** Rodrigo Neves Vieira · ADS 5° NA · Cloud DevOps — Projeto de Entrega Contínua
+
 Plataforma de pedidos da **Loja Veloz** modernizada de ponta a ponta: desenvolvimento local
 padronizado com Docker Compose, imagens enxutas e versionadas, Kubernetes com práticas de produção,
 pipeline CI/CD com gates de qualidade e segurança, canary deploy, autoscaling e observabilidade

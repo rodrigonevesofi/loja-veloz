@@ -59,7 +59,7 @@ module "platform" {
 variable "github_repository" {
   description = "owner/repo do GitHub autorizado a fazer deploy."
   type        = string
-  default     = "loja-veloz/pedidos-veloz"
+  default     = "rodrigonevesofi/loja-veloz"
 }
 
 output "platform" {

@@ -1,7 +1,7 @@
 # Atalhos do dia a dia. Tudo aqui também pode ser executado manualmente (ver README).
 SERVICES := gateway pedidos pagamentos estoque
 TAG      ?= dev
-REGISTRY ?= ghcr.io/loja-veloz
+REGISTRY ?= ghcr.io/rodrigonevesofi
 
 .PHONY: help up down logs ps smoke load test lint fmt images kind-load k8s-render k8s-rules
 

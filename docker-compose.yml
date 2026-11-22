@@ -56,7 +56,7 @@ services:
       context: .
       dockerfile: services/estoque/Dockerfile
       args: *build-args
-    image: ${REGISTRY:-ghcr.io/loja-veloz}/loja-veloz-estoque:${TAG:-dev}
+    image: ${REGISTRY:-ghcr.io/rodrigonevesofi}/loja-veloz-estoque:${TAG:-dev}
     environment:
       <<: *app-env
       DATABASE_URL: postgresql://estoque:${ESTOQUE_DB_PASSWORD:-estoque-dev}@postgres:5432/estoque
@@ -74,7 +74,7 @@ services:
       context: .
       dockerfile: services/pagamentos/Dockerfile
       args: *build-args
-    image: ${REGISTRY:-ghcr.io/loja-veloz}/loja-veloz-pagamentos:${TAG:-dev}
+    image: ${REGISTRY:-ghcr.io/rodrigonevesofi}/loja-veloz-pagamentos:${TAG:-dev}
     environment:
       <<: *app-env
       PAYMENT_PROVIDER_LATENCY_MS: ${PAYMENT_PROVIDER_LATENCY_MS:-150}
@@ -92,7 +92,7 @@ services:
       context: .
       dockerfile: services/pedidos/Dockerfile
       args: *build-args
-    image: ${REGISTRY:-ghcr.io/loja-veloz}/loja-veloz-pedidos:${TAG:-dev}
+    image: ${REGISTRY:-ghcr.io/rodrigonevesofi}/loja-veloz-pedidos:${TAG:-dev}
     environment:
       <<: *app-env
       DATABASE_URL: postgresql://pedidos:${PEDIDOS_DB_PASSWORD:-pedidos-dev}@postgres:5432/pedidos
@@ -114,7 +114,7 @@ services:
       context: .
       dockerfile: services/gateway/Dockerfile
       args: *build-args
-    image: ${REGISTRY:-ghcr.io/loja-veloz}/loja-veloz-gateway:${TAG:-dev}
+    image: ${REGISTRY:-ghcr.io/rodrigonevesofi}/loja-veloz-gateway:${TAG:-dev}
     environment:
       <<: *app-env
       PEDIDOS_URL: http://pedidos:8000
