@@ -173,7 +173,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=ref,event=pr
       - name: Build (carregado localmente para o scan)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: services/${{ matrix.service }}/Dockerfile
@@ -200,7 +200,7 @@ jobs:
           category: trivy-${{ matrix.service }}
       - name: Push com SBOM e proveniência (SLSA)
         if: env.PUSH == 'true'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: services/${{ matrix.service }}/Dockerfile
