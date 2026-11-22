@@ -52,8 +52,8 @@ patches:
         value: 4
 
 images:
-  - { name: loja-veloz/gateway, newName: ghcr.io/loja-veloz/loja-veloz-gateway, newTag: 0.1.0 }
-  - { name: loja-veloz/pedidos, newName: ghcr.io/loja-veloz/loja-veloz-pedidos, newTag: 0.1.0 }
-  - { name: loja-veloz/pedidos-canary, newName: ghcr.io/loja-veloz/loja-veloz-pedidos, newTag: 0.1.0 }
-  - { name: loja-veloz/estoque, newName: ghcr.io/loja-veloz/loja-veloz-estoque, newTag: 0.1.0 }
-  - { name: loja-veloz/pagamentos, newName: ghcr.io/loja-veloz/loja-veloz-pagamentos, newTag: 0.1.0 }
+  - { name: loja-veloz/gateway, newName: ghcr.io/rodrigonevesofi/loja-veloz-gateway, newTag: 0.1.0 }
+  - { name: loja-veloz/pedidos, newName: ghcr.io/rodrigonevesofi/loja-veloz-pedidos, newTag: 0.1.0 }
+  - { name: loja-veloz/pedidos-canary, newName: ghcr.io/rodrigonevesofi/loja-veloz-pedidos, newTag: 0.1.0 }
+  - { name: loja-veloz/estoque, newName: ghcr.io/rodrigonevesofi/loja-veloz-estoque, newTag: 0.1.0 }
+  - { name: loja-veloz/pagamentos, newName: ghcr.io/rodrigonevesofi/loja-veloz-pagamentos, newTag: 0.1.0 }

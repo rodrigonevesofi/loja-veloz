@@ -14,7 +14,7 @@ set -euo pipefail
 
 TAG="${1:?uso: canary.sh <tag>}"
 NS="${NAMESPACE:-loja-veloz}"
-IMAGE="${IMAGE_REPO:-ghcr.io/loja-veloz/loja-veloz-pedidos}:${TAG}"
+IMAGE="${IMAGE_REPO:-ghcr.io/rodrigonevesofi/loja-veloz-pedidos}:${TAG}"
 PROM_URL="${PROM_URL:-http://localhost:9090}"
 MAX_ERROR_RATE="${MAX_ERROR_RATE:-0.01}"   # 1% de 5xx
 MAX_P95="${MAX_P95_SECONDS:-0.8}"          # 800 ms
