@@ -215,9 +215,12 @@ jobs:
           sbom: true
 
   # ------------------------------------------------------------------ entrega
+  # CD só roda depois que a infraestrutura existir: a variável de repositório
+  # AWS_DEPLOY_ROLE_ARN (output do Terraform) liga o deploy. Sem ela, o pipeline
+  # termina no push das imagens para o GHCR e fica verde.
   release-info:
     name: Tag da imagem
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && vars.AWS_DEPLOY_ROLE_ARN != ''
     needs: build
     runs-on: ubuntu-24.04
     outputs:

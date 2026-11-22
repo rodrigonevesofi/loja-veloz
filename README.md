@@ -217,7 +217,7 @@ vulnerabilidades (falha em CRITICAL/HIGH com correção disponível), `terraform
 - `permissions: contents: read` por padrão e escalonado por job; Dependabot para pip, Docker, Actions e Terraform.
   Em produção, fixe as Actions de terceiros pelo **SHA do commit** (tags podem ser reescritas, como no incidente `tj-actions/changed-files` em 2025).
 
-**Configuração no GitHub**: crie os Environments `staging` e `production` (este com *required reviewers*) e
+**Configuração no GitHub**: o deploy fica desligado até existir a variável de repositório `AWS_DEPLOY_ROLE_ARN`. Para ligar, crie os Environments `staging` e `production` (este com *required reviewers*) e
 preencha as variáveis acima com os outputs do Terraform.
 
 ## 9. Observabilidade
