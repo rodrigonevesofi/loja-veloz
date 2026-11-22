@@ -1,0 +1,37 @@
+﻿ROTEIRO DA NARRAÇÃO - PITCH PEDIDOS VELOZ
+
+Grave UMA gravação por slide, na ordem (1 a 11), no Gravador de Som do Windows.
+Leia com calma, como se explicasse para o professor. Se errar, apague a gravação no app e grave de novo.
+
+===== SLIDE 1 de 11 =====
+Olá, eu sou Rodrigo Neves Vieira, do quinto semestre de Análise e Desenvolvimento de Sistemas. Este é o pitch do projeto Pedidos Veloz, da disciplina de Cloud DevOps.
+
+===== SLIDE 2 de 11 =====
+A Loja Veloz cresceu rápido e tem três problemas: deploys que derrubam a produção, dificuldade para escalar nos picos e falhas que ninguém consegue rastrear entre os serviços. E faltam só quatro semanas para uma campanha promocional.
+
+===== SLIDE 3 de 11 =====
+A plataforma tem quatro microsserviços. O gateway é a única entrada. O serviço de pedidos orquestra uma saga: reserva o estoque, cobra o pagamento e, se algo falhar, devolve a reserva. Cada serviço com dados tem o seu próprio banco no PostgreSQL. Não usei mensageria no MVP porque o cliente precisa da resposta na hora.
+
+===== SLIDE 4 de 11 =====
+Para rodar localmente, um único comando, docker compose up, sobe nove contêineres: os quatro serviços, o banco e a observabilidade. O smoke test passa pelo gateway e valida catálogo, criação de pedido, idempotência, consulta e validação. E esse mesmo teste roda no GitHub Actions a cada mudança.
+
+===== SLIDE 5 de 11 =====
+Cada pedido gera um trace com OpenTelemetry que atravessa os serviços. Os logs saem em JSON com o mesmo trace id. O Prometheus coleta taxa, erros e latência, além de métricas de negócio, como pedidos por status. O Grafana já sobe com um dashboard, e os alertas seguem os SLOs.
+
+===== SLIDE 6 de 11 =====
+Cada serviço tem um Dockerfile multi-stage: um estágio instala as dependências e o outro leva só o necessário. A imagem roda sem root, sem pip, e é versionada pelo hash do commit, nunca com a tag latest.
+
+===== SLIDE 7 de 11 =====
+No Kubernetes, uso Kustomize com uma base e um overlay por ambiente. A readiness checa o banco, e a liveness só o processo. O namespace aplica o Pod Security restricted, as network policies bloqueiam tudo por padrão, o Istio cifra o tráfego com mTLS, e os segredos vêm do Secrets Manager, nunca do Git.
+
+===== SLIDE 8 de 11 =====
+No deploy, todos os serviços usam rolling update sem derrubar réplicas. No serviço de pedidos, que mexe com dinheiro, uso canary: cinco, dez e vinte e cinco por cento do tráfego, com checagem automática de erro e latência. Se piorar, o tráfego volta em segundos. Descartei blue-green porque dobra a infraestrutura.
+
+===== SLIDE 9 de 11 =====
+Para escalar, o HPA aumenta as réplicas pela CPU: sobe rápido na abertura da campanha e desce devagar. Pedidos vai até trinta réplicas, e pagamentos para em seis, por causa do limite do provedor. O VPA só recomenda recursos, para não brigar com o HPA.
+
+===== SLIDE 10 de 11 =====
+O pipeline no GitHub Actions faz lint, testes, validação dos manifests e do Terraform, teste ponta a ponta e scan de vulnerabilidades. Depois publica as imagens. O deploy usa OIDC, sem nenhuma chave guardada, e produção exige aprovação. Esta execução real está toda verde.
+
+===== SLIDE 11 de 11 =====
+A infraestrutura também é código: o Terraform cria a rede, o cluster e o banco gerenciado. Resumindo: deploy sem medo, escala sob demanda e falhas rastreáveis. O link do repositório está na tela. Obrigado!

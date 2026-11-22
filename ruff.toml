@@ -13,6 +13,7 @@ ignore = [
 [lint.per-file-ignores]
 "**/tests/**" = ["S101"]
 "docs/build_reports.py" = ["E501"]  # parágrafos de texto do relatório
+"docs/pitch/*.py" = ["E501", "S603"]  # textos/coordenadas de slide; ffmpeg com argumentos fixos
 
 [lint.isort]
 known-first-party = ["app", "veloz_common"]

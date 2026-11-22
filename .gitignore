@@ -12,3 +12,7 @@ __pycache__/
 venv/
 reports/
 deploy/k8s/overlays/local/secrets.env
+
+# vídeo do pitch: artefatos gerados e a amostra da voz ficam fora do Git
+docs/pitch/out/
+docs/pitch/voz/
