@@ -32,7 +32,7 @@ DISCIPLINA = "Cloud DevOps — Projeto de Entrega Contínua"
 CURSO = "ADS 5° NA"
 DATA = "Novembro de 2026"
 REPO_URL = "https://github.com/rodrigonevesofi/loja-veloz"
-VIDEO_URL = "https://youtu.be/SEU-LINK-AQUI"
+VIDEO_URL = "https://youtu.be/qZjuKWLjN-0"
 
 OUT = Path(__file__).resolve().parent
 

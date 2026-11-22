@@ -9,9 +9,8 @@ padronizado com Docker Compose, imagens enxutas e versionadas, Kubernetes com pr
 pipeline CI/CD com gates de qualidade e segurança, canary deploy, autoscaling e observabilidade
 completa (métricas, logs e tracing distribuído com OpenTelemetry).
 
-> 🎬 **Vídeo pitch:** <https://youtu.be/SEU-LINK-AQUI> *(substitua pelo link do YouTube)*
+> 🎬 **Vídeo pitch:** <https://www.youtube.com/watch?v=qZjuKWLjN-0> (3min28)
 > 📄 **Relatórios:** [docs/relatorio-teorico.pdf](docs/relatorio-teorico.pdf) · [docs/relatorio-pratico.pdf](docs/relatorio-pratico.pdf)
-> 🗒️ **Roteiro do vídeo:** [docs/roteiro-video.md](docs/roteiro-video.md)
 
 ---
 
