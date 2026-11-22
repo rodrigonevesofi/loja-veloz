@@ -268,7 +268,7 @@ terraform init && terraform plan -out=tfplan && terraform apply tfplan
 
 | Funcional e testado | Pronto para uso, depende de infraestrutura externa |
 |---|---|
-| 4 serviços + chassis, 33 testes automatizados, E2E pelo gateway | Deploy em EKS (exige conta AWS + `terraform apply`) |
+| 4 serviços + chassis, 33 testes automatizados, E2E com Compose rodando no GitHub Actions | Deploy em EKS (exige conta AWS + `terraform apply`) |
 | Ambiente Compose completo com observabilidade | Plataforma do cluster (Istio, kube-prometheus-stack, ESO; ver `deploy/k8s/platform/README.md`) |
 | Manifests Kubernetes (overlay `local` roda em kind) | Canary com gate no Prometheus (script pronto; precisa do mesh no cluster) |
 | Pipeline CI (lint, testes, scan, build, push GHCR) | CD para staging/produção (precisa dos Environments e da role OIDC) |

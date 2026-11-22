@@ -939,8 +939,14 @@ def relatorio_pratico():
                         "<b>33 testes automatizados</b> passando (chassis 3, Estoque 9, Pedidos 9, Pagamentos 7, Gateway 5), "
                         "cobrindo a saga, a compensação, a idempotência, a concorrência no estoque, a validação de entrada e as "
                         "falhas de dependência. Ruff sem apontamentos.",
-                        "<b>E2E real</b>: os quatro serviços em execução, conversando por HTTP; o smoke test pelo gateway passou "
-                        "nas 5 verificações (catálogo, criação, idempotência, consulta e 422).",
+                        "<b>Pipeline real no GitHub Actions, todo verde:</b> o job E2E sobe os 9 contêineres com "
+                        + code("docker compose up --wait")
+                        + " e o smoke test passa nas 5 verificações (catálogo, criação, idempotência, consulta e 422); "
+                        "kustomize + kubeconform validam os overlays local, staging, prod e a plataforma; Trivy sem "
+                        "vulnerabilidades CRITICAL/HIGH; "
+                        + code("terraform validate")
+                        + " nos dois ambientes; as 4 imagens "
+                        "publicadas no GHCR com SBOM e proveniência.",
                         "<b>Tracing verificado</b>: um único trace por pedido, cobrindo os spans de servidor, saga e cliente HTTP.",
                         "<b>Próximos passos:</b> outbox + broker para eventos "
                         + code("PedidoCriado")
