@@ -1,9 +1,8 @@
 # syntax=docker/dockerfile:1.7
 # Build a partir da RAIZ do repositório:  docker build -f services/pagamentos/Dockerfile .
-ARG PYTHON_IMAGE=python:3.13-slim-bookworm
 
 # ---------- estágio 1: dependências (tem pip/compiladores; não vai para produção) ----------
-FROM ${PYTHON_IMAGE} AS builder
+FROM python:3.13-slim-bookworm AS builder
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PYTHONDONTWRITEBYTECODE=1
 RUN python -m venv /opt/venv
 ENV PATH=/opt/venv/bin:$PATH
@@ -16,7 +15,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
  && pip uninstall -y pip
 
 # ---------- estágio 2: runtime enxuto, sem pip/setuptools, usuário não-root ----------
-FROM ${PYTHON_IMAGE} AS runtime
+FROM python:3.13-slim-bookworm AS runtime
 ARG APP_VERSION=dev
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.title="loja-veloz-pagamentos" \

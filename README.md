@@ -215,7 +215,7 @@ vulnerabilidades (falha em CRITICAL/HIGH com correção disponível), `terraform
   `repo:<owner>/<repo>:environment:<env>`. Não existe access key guardada;
 - configuração não sensível em *Environment variables*: `AWS_REGION`, `AWS_DEPLOY_ROLE_ARN`, `EKS_CLUSTER_NAME`, `PUBLIC_URL`;
 - `permissions: contents: read` por padrão e escalonado por job; Dependabot para pip, Docker, Actions e Terraform.
-  Em produção, fixe as Actions de terceiros pelo **SHA do commit** (tags podem ser reescritas, como no incidente `tj-actions/changed-files` em 2025).
+  O `trivy-action` (terceiro, roda com acesso às imagens) já está fixado pelo **SHA do commit**: tags podem ser reescritas ou removidas, como no incidente `tj-actions/changed-files` em 2025 (e a tag `0.28.0` do próprio trivy-action deixou de existir). Faça o mesmo com as demais Actions de terceiros.
 
 **Configuração no GitHub**: o deploy fica desligado até existir a variável de repositório `AWS_DEPLOY_ROLE_ARN`. Para ligar, crie os Environments `staging` e `production` (este com *required reviewers*) e
 preencha as variáveis acima com os outputs do Terraform.
