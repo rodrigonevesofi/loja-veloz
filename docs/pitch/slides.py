@@ -527,14 +527,15 @@ def s_cicd(s: Slide, jobs: dict):
         s.d.text((x + 70, y + 12), nome, font=font("r", 27), fill=TEXT if ok else MUTED)
         s.d.text(
             (x + 820, y + 14),
-            dur(j) if ok else "pulado (sem AWS)",
+            dur(j) if ok else "desligado (sem AWS)",
             font=font("m", 24),
             fill=MUTED,
             anchor="ra",
         )
     s.d.text(
         (96, 850),
-        "OIDC com a AWS: nenhuma chave guardada · produção exige aprovação manual",
+        "Deploy já configurado, ligado quando houver conta AWS · login por OIDC, sem senha salva no GitHub"
+        " · produção só com aprovação manual",
         font=font("r", 28),
         fill=ACCENT,
     )
