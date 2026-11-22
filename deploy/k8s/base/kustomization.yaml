@@ -1,0 +1,39 @@
+# Base comum a todos os ambientes. Cada overlay (local, staging, prod) só declara diferenças.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: loja-veloz
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: loja-veloz
+      app.kubernetes.io/managed-by: kustomize
+    includeSelectors: false   # seletores imutáveis ficam só com app.kubernetes.io/name
+
+resources:
+  - namespace.yaml
+  - quotas.yaml
+  - networkpolicies.yaml
+  - gateway.yaml
+  - pedidos.yaml
+  - estoque.yaml
+  - pagamentos.yaml
+
+# O sufixo de hash no nome faz QUALQUER mudança de config disparar um rolling update.
+configMapGenerator:
+  - name: loja-veloz-config
+    envs:
+      - config.env
+
+images:
+  - name: loja-veloz/gateway
+    newName: ghcr.io/loja-veloz/loja-veloz-gateway
+    newTag: 0.1.0
+  - name: loja-veloz/pedidos
+    newName: ghcr.io/loja-veloz/loja-veloz-pedidos
+    newTag: 0.1.0
+  - name: loja-veloz/estoque
+    newName: ghcr.io/loja-veloz/loja-veloz-estoque
+    newTag: 0.1.0
+  - name: loja-veloz/pagamentos
+    newName: ghcr.io/loja-veloz/loja-veloz-pagamentos
+    newTag: 0.1.0

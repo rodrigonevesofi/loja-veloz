@@ -1,0 +1,14 @@
+.env
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl.bak
+crash.log
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+reports/
+deploy/k8s/overlays/local/secrets.env

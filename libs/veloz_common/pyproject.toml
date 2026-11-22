@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "veloz-common"
+version = "0.1.0"
+description = "Chassis compartilhado dos microsserviços Loja Veloz: logs JSON, métricas Prometheus, tracing OpenTelemetry e health checks."
+requires-python = ">=3.12"
+# As versões exatas ficam no requirements.txt de cada serviço (fonte única para o build da imagem).
+dependencies = []
+
+[tool.setuptools]
+packages = ["veloz_common"]

@@ -1,0 +1,113 @@
+# Workflow reutilizável de deploy (chamado pelo pipeline para staging e produção).
+#
+# Segredos: nenhuma credencial de nuvem fica guardada no GitHub. O job troca seu token
+# OIDC por uma role IAM temporária (escopo: só este repositório + este Environment),
+# criada pelo Terraform (infra/terraform/modules/platform/github_oidc.tf).
+# Configuração não sensível fica em "variables" do Environment: AWS_REGION,
+# AWS_DEPLOY_ROLE_ARN, EKS_CLUSTER_NAME, PUBLIC_URL.
+name: deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      image_tag:
+        type: string
+        required: true
+      canary:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  NAMESPACE: loja-veloz
+  KUSTOMIZE_VERSION: "5.5.0"
+
+jobs:
+  deploy:
+    name: ${{ inputs.environment }} (${{ inputs.image_tag }})
+    runs-on: ubuntu-24.04
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ vars.PUBLIC_URL }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false   # nunca interromper um deploy no meio
+    env:
+      TAG: ${{ inputs.image_tag }}
+      OVERLAY: deploy/k8s/overlays/${{ inputs.environment == 'production' && 'prod' || 'staging' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: kubeconfig e ferramentas
+        run: |
+          aws eks update-kubeconfig --name "${{ vars.EKS_CLUSTER_NAME }}" --region "${{ vars.AWS_REGION }}"
+          curl -sSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin
+
+      - name: Fixar as imagens na tag imutável
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          repo="ghcr.io/${owner}/loja-veloz"
+          cd "$OVERLAY"
+          for s in gateway estoque pagamentos; do
+            kustomize edit set image "loja-veloz/$s=$repo-$s:$TAG"
+          done
+          if [ "${{ inputs.canary }}" = "true" ]; then
+            # Pedidos estável continua na versão atual; a nova vai só para o canary
+            atual=$(kubectl -n "$NAMESPACE" get deploy pedidos -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)
+            kustomize edit set image "loja-veloz/pedidos=${atual:-$repo-pedidos:$TAG}"
+            kustomize edit set image "loja-veloz/pedidos-canary=$repo-pedidos:$TAG"
+          else
+            kustomize edit set image "loja-veloz/pedidos=$repo-pedidos:$TAG"
+          fi
+          kustomize build . > /tmp/manifests.yaml
+
+      - name: Diff do que vai mudar no cluster
+        run: kubectl diff -f /tmp/manifests.yaml || true
+
+      - name: "Aplicar (dry-run no servidor antes: valida admission/PSA sem efeito)"
+        run: |
+          kubectl apply --server-side --dry-run=server -f /tmp/manifests.yaml
+          kubectl apply --server-side -f /tmp/manifests.yaml
+
+      - name: Acompanhar rolling update (rollback automático se travar)
+        run: |
+          for d in estoque pagamentos pedidos gateway; do
+            if ! kubectl -n "$NAMESPACE" rollout status "deployment/$d" --timeout=300s; then
+              echo "::error::rollout de $d falhou; desfazendo"
+              kubectl -n "$NAMESPACE" rollout undo "deployment/$d"
+              exit 1
+            fi
+          done
+
+      - name: Canary de Pedidos com gate no Prometheus
+        if: inputs.canary
+        run: |
+          kubectl -n monitoring port-forward svc/kube-prometheus-stack-prometheus 9090:9090 >/dev/null 2>&1 &
+          sleep 3
+          IMAGE_REPO="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/loja-veloz-pedidos" \
+          PROM_URL=http://localhost:9090 BAKE_SECONDS=180 \
+            bash scripts/canary.sh "$TAG"
+
+      - name: Smoke test pós-deploy
+        run: python3 scripts/smoke_test.py --base-url "${{ vars.PUBLIC_URL }}" --wait 120
+
+      - name: Resumo
+        if: always()
+        run: |
+          {
+            echo "### Deploy ${{ inputs.environment }}"
+            echo "- Tag: \`$TAG\`"
+            echo "- Canary: ${{ inputs.canary }}"
+            kubectl -n "$NAMESPACE" get deploy -o wide 2>/dev/null | sed 's/^/    /'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,32 @@
+# Service mesh (Istio, modo sidecar + Istio CNI). Com o CNI os pods NÃO precisam do
+# init container privilegiado (NET_ADMIN/NET_RAW), então continuam aprovados pelo PSA "restricted".
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - mesh-security.yaml
+  - traffic.yaml
+  - httproute.yaml
+
+patches:
+  - target:
+      kind: Namespace
+      name: loja-veloz
+    patch: |-
+      - op: add
+        path: /metadata/labels/istio-injection
+        value: enabled
+  # sidecars precisam falar com o istiod (xDS/certificados mTLS)
+  - target:
+      kind: NetworkPolicy
+      name: allow-dns-and-telemetry
+    patch: |-
+      - op: add
+        path: /spec/egress/-
+        value:
+          to:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: istio-system
+          ports:
+            - { protocol: TCP, port: 15012 }

@@ -1,0 +1,7 @@
+* text=auto
+# scripts executados dentro de contêineres Linux precisam de LF mesmo se clonados no Windows
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.pdf binary

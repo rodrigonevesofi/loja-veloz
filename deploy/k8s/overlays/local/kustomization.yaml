@@ -1,0 +1,57 @@
+# Cluster local (kind/minikube/k3d) para testar os manifests antes do CI:
+#   kind create cluster --name loja-veloz
+#   make images && make kind-load
+#   kubectl apply -k deploy/k8s/overlays/local
+#   kubectl -n loja-veloz port-forward svc/gateway 8080:8000
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: loja-veloz
+
+resources:
+  - ../../base
+  - postgres.yaml
+
+configMapGenerator:
+  - name: loja-veloz-config
+    behavior: merge
+    # OTLP vazio = sem exportador de traces (instale deploy/k8s/platform para tê-los)
+    literals:
+      - APP_ENV=local
+      - OTEL_TRACES_SAMPLER=parentbased_always_on
+      - OTEL_EXPORTER_OTLP_ENDPOINT=
+      - PAYMENT_PROVIDER_FAILURE_RATE=0.02
+
+# Somente DEV. Em staging/prod os Secrets vêm do AWS Secrets Manager via External Secrets.
+secretGenerator:
+  - name: postgres-admin
+    literals:
+      - POSTGRES_PASSWORD=veloz-admin-dev
+  - name: pedidos-db
+    literals:
+      - DATABASE_URL=postgresql://pedidos:pedidos-dev@postgres:5432/pedidos
+  - name: estoque-db
+    literals:
+      - DATABASE_URL=postgresql://estoque:estoque-dev@postgres:5432/estoque
+
+patches:
+  - target: { kind: Deployment, name: "gateway|pedidos|estoque|pagamentos" }
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target: { kind: HorizontalPodAutoscaler }
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+  - target: { kind: ResourceQuota }
+    patch: |-
+      - op: replace
+        path: /spec/hard/requests.cpu
+        value: "4"
+
+images:
+  - { name: loja-veloz/gateway, newName: ghcr.io/loja-veloz/loja-veloz-gateway, newTag: dev }
+  - { name: loja-veloz/pedidos, newName: ghcr.io/loja-veloz/loja-veloz-pedidos, newTag: dev }
+  - { name: loja-veloz/estoque, newName: ghcr.io/loja-veloz/loja-veloz-estoque, newTag: dev }
+  - { name: loja-veloz/pagamentos, newName: ghcr.io/loja-veloz/loja-veloz-pagamentos, newTag: dev }

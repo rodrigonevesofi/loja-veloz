@@ -1,0 +1,46 @@
+# helm upgrade --install otel-collector open-telemetry/opentelemetry-collector \
+#   -n observability -f deploy/k8s/platform/helm/otel-collector.values.yaml
+# Modo DaemonSet: um collector por nó recebe OTLP dos pods e também coleta os logs
+# stdout dos contêineres (filelog), enriquecendo tudo com metadados do Kubernetes.
+mode: daemonset
+image:
+  repository: otel/opentelemetry-collector-k8s
+presets:
+  kubernetesAttributes:
+    enabled: true          # k8s.pod.name, k8s.deployment.name, k8s.node.name...
+  logsCollection:
+    enabled: true          # lê /var/log/pods/* (logs JSON da aplicação)
+config:
+  receivers:
+    otlp:
+      protocols:
+        http: { endpoint: 0.0.0.0:4318 }
+        grpc: { endpoint: 0.0.0.0:4317 }
+  processors:
+    memory_limiter: { check_interval: 1s, limit_percentage: 80, spike_limit_percentage: 25 }
+    batch: {}
+    # tail sampling: mantém 100% dos traces com erro ou lentos e uma amostra do resto
+    tail_sampling:
+      decision_wait: 10s
+      policies:
+        - { name: erros, type: status_code, status_code: { status_codes: [ERROR] } }
+        - { name: lentos, type: latency, latency: { threshold_ms: 800 } }
+        - { name: amostra, type: probabilistic, probabilistic: { sampling_percentage: 10 } }
+  exporters:
+    otlp/tempo:
+      endpoint: tempo.observability.svc.cluster.local:4317
+      tls: { insecure: true }
+    otlphttp/loki:
+      endpoint: http://loki-gateway.observability.svc.cluster.local/otlp
+  service:
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: [memory_limiter, tail_sampling, batch]
+        exporters: [otlp/tempo]
+      logs:
+        receivers: [filelog]
+        processors: [memory_limiter, batch]
+        exporters: [otlphttp/loki]
+service:
+  enabled: true            # Service estável: otel-collector.observability.svc:4318

@@ -1,0 +1,17 @@
+# Canary do serviço de Pedidos (o mais crítico: mexe em dinheiro e estoque).
+# Estado declarado no Git: Deployment "pedidos-canary" com 0 réplicas e peso 0% no
+# VirtualService (components/istio). Durante um release, scripts/canary.sh escala o canary,
+# move o peso 5% -> 10% -> 25% com gate de erro/latência no Prometheus e, se aprovado,
+# promove a tag para o Deployment estável; se reprovado, volta o peso a 0% em segundos.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - pedidos-canary.yaml
+
+patches:
+  - target: { kind: Deployment, name: pedidos-canary }
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 0

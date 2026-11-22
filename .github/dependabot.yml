@@ -1,0 +1,17 @@
+# Atualizações automáticas de dependências (supply chain): cada bump passa pelo mesmo pipeline.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directories: ["/services/*"]
+    schedule: { interval: weekly }
+    groups:
+      opentelemetry: { patterns: ["opentelemetry-*"] }
+  - package-ecosystem: docker
+    directories: ["/services/*"]
+    schedule: { interval: weekly }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+  - package-ecosystem: terraform
+    directories: ["/infra/terraform/envs/*"]
+    schedule: { interval: monthly }

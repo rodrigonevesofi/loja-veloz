@@ -1,0 +1,67 @@
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: gateway
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: gateway
+  updatePolicy:
+    updateMode: "Off"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: gateway
+        minAllowed: { cpu: 50m, memory: 96Mi }
+        maxAllowed: { cpu: "2", memory: 1Gi }
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: pedidos
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: pedidos
+  updatePolicy:
+    updateMode: "Off"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: pedidos
+        minAllowed: { cpu: 50m, memory: 96Mi }
+        maxAllowed: { cpu: "2", memory: 1Gi }
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: estoque
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: estoque
+  updatePolicy:
+    updateMode: "Off"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: estoque
+        minAllowed: { cpu: 50m, memory: 96Mi }
+        maxAllowed: { cpu: "2", memory: 1Gi }
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: pagamentos
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: pagamentos
+  updatePolicy:
+    updateMode: "Off"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: pagamentos
+        minAllowed: { cpu: 50m, memory: 96Mi }
+        maxAllowed: { cpu: "2", memory: 1Gi }

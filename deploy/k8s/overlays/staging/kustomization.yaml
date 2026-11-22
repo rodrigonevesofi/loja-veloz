@@ -1,0 +1,34 @@
+# Staging: mesma topologia de produção (mesh, monitoramento, secrets externos) em escala menor.
+# O CD reescreve as tags em `images:` com `kustomize edit set image` (tag imutável sha-<commit>).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: loja-veloz
+
+resources:
+  - ../../base
+  - external-secrets.yaml
+
+components:
+  - ../../components/istio
+  - ../../components/monitoring
+
+configMapGenerator:
+  - name: loja-veloz-config
+    behavior: merge
+    literals:
+      - APP_ENV=staging
+      - LOG_LEVEL=DEBUG
+      - PAYMENT_PROVIDER_FAILURE_RATE=0.02
+
+patches:
+  - target: { kind: HTTPRoute, name: loja-veloz-api }
+    patch: |-
+      - op: replace
+        path: /spec/hostnames/0
+        value: api.staging.lojaveloz.example
+
+images:
+  - { name: loja-veloz/gateway, newName: ghcr.io/loja-veloz/loja-veloz-gateway, newTag: 0.1.0 }
+  - { name: loja-veloz/pedidos, newName: ghcr.io/loja-veloz/loja-veloz-pedidos, newTag: 0.1.0 }
+  - { name: loja-veloz/estoque, newName: ghcr.io/loja-veloz/loja-veloz-estoque, newTag: 0.1.0 }
+  - { name: loja-veloz/pagamentos, newName: ghcr.io/loja-veloz/loja-veloz-pagamentos, newTag: 0.1.0 }

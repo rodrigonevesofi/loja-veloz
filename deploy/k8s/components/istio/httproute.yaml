@@ -1,0 +1,21 @@
+# Entrada norte-sul via Gateway API (sucessora do Ingress; o ingress-nginx foi aposentado).
+# O Gateway é da equipe de plataforma (deploy/k8s/platform); o time só publica a rota.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: loja-veloz-api
+spec:
+  parentRefs:
+    - name: loja-veloz-gw
+      namespace: istio-ingress
+      sectionName: https
+  hostnames:
+    - api.lojaveloz.example          # sobrescrito por overlay
+  rules:
+    - matches:
+        - path: { type: PathPrefix, value: /api }
+      timeouts:
+        request: 15s
+      backendRefs:
+        - name: gateway
+          port: 8000

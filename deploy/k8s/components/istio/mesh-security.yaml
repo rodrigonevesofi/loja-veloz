@@ -1,0 +1,72 @@
+# mTLS obrigatório entre todos os pods do namespace: tráfego cifrado e identidade
+# criptográfica por ServiceAccount (SPIFFE), sem mudar uma linha de código.
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+spec:
+  mtls:
+    mode: STRICT
+---
+# Autorização L7 por identidade: complementa as NetworkPolicies (L3/L4).
+# Mesmo que alguém consiga rodar um pod na rede, sem a identidade certa recebe 403.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: pagamentos
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pagamentos
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/loja-veloz/sa/pedidos"]
+      to:
+        - operation:
+            methods: ["POST"]
+            paths: ["/pagamentos"]
+    - to:
+        - operation:
+            paths: ["/health/*", "/metrics"]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: estoque
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: estoque
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/loja-veloz/sa/pedidos"]
+    - from:
+        - source:
+            principals: ["cluster.local/ns/loja-veloz/sa/gateway"]
+      to:
+        - operation:
+            methods: ["GET"]           # o gateway só lê o catálogo; reservas só via pedidos
+    - to:
+        - operation:
+            paths: ["/health/*", "/metrics"]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: pedidos
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pedidos
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/loja-veloz/sa/gateway"]
+    - to:
+        - operation:
+            paths: ["/health/*", "/metrics"]

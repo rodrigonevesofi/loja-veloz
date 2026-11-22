@@ -1,0 +1,192 @@
+# API Gateway - único serviço alcançável de fora do namespace (via HTTPRoute)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gateway
+  labels:
+    app.kubernetes.io/name: gateway
+# o app não fala com a API do Kubernetes: sem token montado, menos superfície de ataque
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/component: edge
+spec:
+  replicas: 2                      # ponto de partida; o HPA assume a partir daqui
+  revisionHistoryLimit: 5             # permite `kubectl rollout undo` rápido
+  progressDeadlineSeconds: 180        # rollout travado => CD falha e faz rollback
+  minReadySeconds: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 0               # nunca derruba capacidade durante o deploy
+  selector:
+    matchLabels:                      # "version" separa este Deployment do canary (mesmo Service)
+      app.kubernetes.io/name: gateway
+      version: stable
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gateway
+        app.kubernetes.io/component: edge
+        version: stable
+    spec:
+      serviceAccountName: gateway
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:                # compatível com Pod Security Standard "restricted"
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:      # réplicas espalhadas entre zonas e nós
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: gateway
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: gateway
+      containers:
+        - name: gateway
+          image: loja-veloz/gateway    # reescrito pelo Kustomize (images:) com a tag imutável do CI
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: loja-veloz-config
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "k8s.pod.name=$(POD_NAME),k8s.namespace.name=$(POD_NAMESPACE)"
+            - name: OTEL_SERVICE_NAME
+              value: "gateway"
+            - name: HTTP_TIMEOUT_SECONDS
+              value: "10"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          startupProbe:               # protege o boot (pool de conexões, schema) da liveness
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:             # tira o pod do Service se uma dependência cair
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:              # só o processo; nunca dependências (evita restart em cascata)
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5            # dá tempo dos endpoints saírem do balanceamento antes do SIGTERM
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  labels:
+    app.kubernetes.io/name: gateway
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: gateway
+  ports:
+    - name: http                      # prefixo "http" = detecção de protocolo no Istio
+      port: 8000
+      targetPort: http
+      appProtocol: http
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: gateway
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: gateway
+  minReplicas: 2
+  maxReplicas: 10                   # CPU é bom proxy de carga para um proxy HTTP assíncrono
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:                          # pico de campanha: sobe rápido
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        - type: Pods
+          value: 4
+          periodSeconds: 15
+      selectPolicy: Max
+    scaleDown:                        # desce devagar para não oscilar (flapping)
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 20
+          periodSeconds: 60
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: gateway
+spec:
+  maxUnavailable: 1                   # drenagem de nó/upgrade do cluster nunca zera o serviço
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gateway
